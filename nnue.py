@@ -210,8 +210,21 @@ train_dataset = tensorflow.data.Dataset.from_generator (
     )
 )
 
+batch_size = 512
+checkpoint_path = "cp-{epoch:04d}.ckpt"
+cp_callback = tensorflow.keras.callbacks.ModelCheckpoint(
+    filepath = checkpoint_path, 
+    verbose = 1, 
+    save_weights_only = True,
+    save_freq = 5 * batch_size 
+)
+
+
 model = create_nnue_model()
-optimizer = tensorflow.keras.optimizers.AdamW()
+optimizer = tensorflow.keras.optimizers.Adam(
+    learning_rate = 0.0001
+)
+
 model.compile(
     optimizer = optimizer,
     loss = 'mse',
@@ -222,14 +235,11 @@ model.compile(
 )
 
 model.fit (
-    train_dataset.batch(8),
+    train_dataset.batch(batch_size),
     validation_data = train_dataset.batch(8),
-    steps_per_epoch = 1024,
-    epochs = 16,
-    validation_steps = 3,
+    steps_per_epoch = 256,
+    callbacks = [cp_callback],
+    epochs = 1000,
+    validation_steps = 128,
 )
-
-#    validation_steps = 10,
-# https://www.tensorflow.org/tutorials/keras/save_and_load
-# model.save_weights('SHalfKP.nnue')
 
