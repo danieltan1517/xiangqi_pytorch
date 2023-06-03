@@ -184,20 +184,25 @@ def create_nnue_model():
     )
     return model 
 
+def get_lines(filename):
+    with open(filename) as file:
+        return file.readlines()
+    return None
+
 def generate_xiangqi_data(filename):
     # TODO: find a good scale factor.
     SCALE_FACTOR = 310
-    with open(filename) as file:
-        while True:
-            for line in file:
-                tokens = line.split(',')
-                evaluation = int(tokens[0])
-                if abs(evaluation) > 600:
-                    continue
-                evaluation = tensorflow.math.sigmoid(evaluation / SCALE_FACTOR)
-                fen_string = tokens[1].rstrip().lstrip()[1:-2]
-                x0, x1 = parse_fen_to_indices(fen_string)
-                yield (x0, x1), float(evaluation)
+    while True:
+        lines = get_lines(filename)
+        for line in lines:
+            tokens = line.split(',')
+            evaluation = int(tokens[0])
+            if abs(evaluation) > 600:
+                continue
+            evaluation = tensorflow.math.sigmoid(evaluation / SCALE_FACTOR)
+            fen_string = tokens[1].rstrip().lstrip()[1:-2]
+            x0, x1 = parse_fen_to_indices(fen_string)
+            yield (x0, x1), float(evaluation)
 
 
 train_dataset = tensorflow.data.Dataset.from_generator (
@@ -211,7 +216,7 @@ train_dataset = tensorflow.data.Dataset.from_generator (
 )
 
 batch_size = 512
-checkpoint_path = "cp-{epoch:04d}.ckpt"
+checkpoint_path = "model/cp-{epoch:04d}.ckpt"
 cp_callback = tensorflow.keras.callbacks.ModelCheckpoint(
     filepath = checkpoint_path, 
     verbose = 1, 
