@@ -30,11 +30,12 @@ def create_nnue_model():
     )
     return model 
 
-def quantize(weights, dtype):
-    max_weight = tensorflow.math.reduce_max(weights)
-    min_weight = tensorflow.math.reduce_min(weights)
-    (weights,_,_) = tensorflow.quantization.quantize(weights, min_weight, max_weight, dtype)# tensorflow.qint8)
-    return weights
+def quantize(weights, biases, dtype):
+    max_weight = max(tensorflow.math.reduce_max(weights), tensorflow.math.reduce_max(biases))
+    min_weight = min(tensorflow.math.reduce_min(weights), tensorflow.math.reduce_min(biases))
+    (weights,_,_) = tensorflow.quantization.quantize(weights, min_weight, max_weight, dtype)
+    (biases,_,_)  = tensorflow.quantization.quantize(biases,  min_weight, max_weight, dtype)
+    return weights, biases
 
 latest = tensorflow.train.latest_checkpoint('/home/danieltan/Documents/xiangqi_tensorflow/model')
 
@@ -46,14 +47,12 @@ layer1_biases   = model.variables[1]
 layer2_weights  = model.variables[2]
 layer2_biases   = model.variables[3]
 
-layer1_weights = quantize(layer1_weights, tensorflow.qint8)
-layer1_biases  = quantize(layer1_biases, tensorflow.qint8)
-layer2_weights = quantize(layer2_weights, tensorflow.qint8)
-layer2_biases  = quantize(layer2_biases, tensorflow.qint8)
+layer1_weights, layer1_biases = quantize(layer1_weights, layer1_biases, tensorflow.qint8)
+layer2_weights, layer2_biases = quantize(layer2_weights, layer2_biases, tensorflow.qint8)
 
 layer1_weights = layer1_weights.numpy()
 layer1_biases = layer1_biases.numpy()
-layer2_weights = layer2_weights.numpy()
+layer2_weights = layer2_weights.numpy().transpose()
 layer2_biases = layer2_biases.numpy()
 
 print(layer1_weights)
