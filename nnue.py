@@ -215,13 +215,13 @@ train_dataset = tensorflow.data.Dataset.from_generator (
     )
 )
 
-batch_size = 512
+batch_size = 128
 checkpoint_path = "model/cp-{epoch:04d}.ckpt"
 cp_callback = tensorflow.keras.callbacks.ModelCheckpoint(
     filepath = checkpoint_path, 
     verbose = 1, 
     save_weights_only = True,
-    save_freq = 5 * batch_size 
+    save_freq = batch_size 
 )
 
 
@@ -235,16 +235,14 @@ model.compile(
     loss = 'mse',
     metrics=[
         tensorflow.keras.metrics.MeanSquaredError(),
-        tensorflow.keras.metrics.MeanAbsoluteError()
     ]
 )
 
 model.fit (
     train_dataset.batch(batch_size),
-    validation_data = train_dataset.batch(8),
-    steps_per_epoch = 256,
+    steps_per_epoch = batch_size / 2,
     callbacks = [cp_callback],
-    epochs = 1000,
+    epochs = 20,
     validation_steps = 128,
 )
 
