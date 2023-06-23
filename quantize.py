@@ -59,3 +59,11 @@ print(layer1_weights)
 print(layer1_biases)
 print(layer2_weights)
 print(layer2_biases)
+
+with open('model.nn', 'wb') as network:
+    network.write(layer1_weights.tobytes())
+    network.write(layer1_biases.tobytes())
+    network.write(layer2_weights.tobytes())
+    network.write(layer2_biases.tobytes())
+
+
