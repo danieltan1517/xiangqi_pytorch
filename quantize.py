@@ -111,8 +111,10 @@ def parse_fen_to_indices(fen):
     elif tokens[1] == 'b':
         stm = False
 
-    input1 = numpy.zeros(shape = (2,9,9,90), dtype=numpy.bool8)
-    input2 = numpy.zeros(shape = (2,9,9,90), dtype=numpy.bool8)
+    input1 = numpy.zeros(shape = (9,9,90), dtype=numpy.bool8)
+    input2 = numpy.zeros(shape = (9,9,90), dtype=numpy.bool8)
+    input3 = numpy.zeros(shape = (9,9,90), dtype=numpy.bool8)
+    input4 = numpy.zeros(shape = (9,9,90), dtype=numpy.bool8)
     
     #TODO: this is wrong. red_king_sq should not be here.
     #it should be relative to turn.
@@ -133,16 +135,22 @@ def parse_fen_to_indices(fen):
             piece_sq = horizontal_mirror[piece_sq]
 
         p = get_piece_type(piece_type, stm)
-        input1[0][king_sq_index[our_king]][p][piece_sq] = True
-        input1[1][king_sq_index[vertical_mirror[our_king]]][p][piece_sq] = True
+        input1[king_sq_index[our_king]][p][piece_sq] = True
+        input2[king_sq_index[vertical_mirror[our_king]]][p][piece_sq] = True
 
         p = get_piece_type(piece_type, not stm)
         if stm == False:
             piece_sq = horizontal_mirror[piece_sq]
 
-        input2[0][king_sq_index[opp_king]][p][piece_sq] = True
-        input2[1][king_sq_index[vertical_mirror[opp_king]]][p][piece_sq] = True
-    return input1.flatten(), input2.flatten()
+        input3[king_sq_index[opp_king]][p][piece_sq] = True
+        input4[king_sq_index[vertical_mirror[opp_king]]][p][piece_sq] = True
+        
+    input1 = input1.flatten()
+    input2 = input2.flatten()
+    input3 = input3.flatten()
+    input4 = input4.flatten()
+    return (input1, input2, input3, input4)
+
 
 def create_nnue_model():
     ''' 
@@ -152,34 +160,59 @@ def create_nnue_model():
     90 = number of squares
     9x9x90 = 7290
 
-    reflect the board vertically mirror features x2
-    7290x2 = 14580
+    reflect the board vertically mirror features
     '''
-    input1 = tensorflow.keras.Input(shape=(14580,), sparse=True)
-    input2 = tensorflow.keras.Input(shape=(14580,), sparse=True)
-    feature_layer = tensorflow.keras.layers.Dense(32, name='feature_layer')
+    input1 = tensorflow.keras.Input(shape=(7290,), sparse=True)
+    input2 = tensorflow.keras.Input(shape=(7290,), sparse=True)
+    input3 = tensorflow.keras.Input(shape=(7290,), sparse=True)
+    input4 = tensorflow.keras.Input(shape=(7290,), sparse=True)
+    feature_layer = tensorflow.keras.layers.Dense(64, name='feature_layer')
     feature_relu  = tensorflow.keras.layers.ReLU(max_value = 1.0)
     concatenate   = tensorflow.keras.layers.Concatenate()
-    output_layer  = tensorflow.keras.layers.Dense(1, name='output_layer')
+    output_layer  = tensorflow.keras.layers.Dense(1, name='output_layer', use_bias=False)
 
     # create model
-    transform1    = feature_relu(feature_layer(input1))
-    transform2    = feature_relu(feature_layer(input2))
+    transform1    = feature_layer(input1)
+    transform2    = feature_layer(input2)
+    transform3    = feature_layer(input3)
+    transform4    = feature_layer(input4)
+
+    transfrom1    = feature_relu(transform1 + transform2)
+    transfrom2    = feature_relu(transform3 + transform4)
+
     transform     = concatenate([transform1, transform2])
     outputs       = output_layer(transform)
     model         = tensorflow.keras.Model(
-        inputs = (input1, input2), 
+        inputs = (input1, input2, input3, input4), 
         outputs = outputs,
         name = 'SHalfKP',
     )
     return model 
 
+
 def quantize(weights, biases, dtype):
-    max_weight = max(tensorflow.math.reduce_max(weights), tensorflow.math.reduce_max(biases))
-    min_weight = min(tensorflow.math.reduce_min(weights), tensorflow.math.reduce_min(biases))
-    (weights,_,_) = tensorflow.quantization.quantize(weights, min_weight, max_weight, dtype)
-    (biases,_,_)  = tensorflow.quantization.quantize(biases,  min_weight, max_weight, dtype)
+    #max_weight = 1 #max(tensorflow.math.reduce_max(weights), tensorflow.math.reduce_max(biases))
+    #min_weight = 0 #min(tensorflow.math.reduce_min(weights), tensorflow.math.reduce_min(biases))
+    #(weights,_,_) = tensorflow.quantization.quantize(weights, min_weight, max_weight, dtype)
+    #(biases,_,_)  = tensorflow.quantization.quantize(biases,  min_weight, max_weight, dtype)
+    weights = weights * 2048 * 1.15
+    weights = weights.numpy().astype(dtype)
+    print(numpy.max(weights))
+    print(numpy.min(weights))
+    biases  = biases * 2048 * 1.15
+    biases  = biases.numpy().astype(dtype).flatten()
+    print(numpy.max(biases))
+    print(numpy.min(biases))
+    print(weights, biases)
     return weights, biases
+
+def quantize_layer2(weights, dtype):
+    weights = weights * 2048 * 1.15
+    weights = weights.numpy().astype(dtype).transpose()
+    print(numpy.max(weights))
+    print(numpy.min(weights))
+    print(weights)
+    return weights
 
 latest = tensorflow.train.latest_checkpoint('/home/danieltan/Documents/xiangqi_tensorflow/model')
 
@@ -189,23 +222,22 @@ model.load_weights(latest).expect_partial()
 layer1_weights  = model.variables[0]
 layer1_biases   = model.variables[1]
 layer2_weights  = model.variables[2]
-layer2_biases   = model.variables[3]
 
-layer1_weights, layer1_biases = quantize(layer1_weights, layer1_biases, tensorflow.qint8)
-layer2_weights, layer2_biases = quantize(layer2_weights, layer2_biases, tensorflow.qint8)
-
-layer1_weights = layer1_weights.numpy().astype(numpy.int16).transpose()
-layer1_biases = layer1_biases.numpy().astype(numpy.int16)
-layer2_weights = layer2_weights.numpy().astype(numpy.int8).transpose()
-layer2_biases = layer2_biases.numpy().astype(numpy.int8)
+layer1_weights, layer1_biases = quantize(layer1_weights, layer1_biases, numpy.int16)
+layer1_weights = layer1_weights.transpose()
+layer2_weights = quantize_layer2(layer2_weights, numpy.int8)
 
 # todo: find a good quantization scheme.
 def evaluate(fen, expected):
-    i1, i2 = parse_fen_to_indices(fen)
-    i1 = numpy.clip(layer1_weights.dot(i1) + layer1_biases, 0, 0x7F)
-    i2 = numpy.clip(layer1_weights.dot(i2) + layer1_biases, 0, 0x7F)
+    i1, i2, i3, i4 = parse_fen_to_indices(fen)
+    i1 =  layer1_weights.dot(i1) + layer1_biases
+    i2 =  layer1_weights.dot(i2) + layer1_biases
+    i3 =  layer1_weights.dot(i3) + layer1_biases
+    i4 =  layer1_weights.dot(i4) + layer1_biases
+    i1 =  numpy.clip((i1 + i2), 0, 0x7F)
+    i2 =  numpy.clip((i3 + i4), 0, 0x7F)
     vec = numpy.concatenate([i1,i2])
-    vec = (layer2_weights.dot(vec) + layer2_biases)[0] // 128
+    vec = layer2_weights.dot(vec)[0] // 128
     print('(quantized, dataset)', (vec, expected), fen)
 
 
