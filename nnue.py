@@ -115,8 +115,10 @@ def parse_fen_to_indices(fen):
     elif tokens[1] == 'b':
         stm = False
 
-    input1 = numpy.zeros(shape = (2,9,9,90), dtype=numpy.bool8)
-    input2 = numpy.zeros(shape = (2,9,9,90), dtype=numpy.bool8)
+    input1 = numpy.zeros(shape = (9,9,90), dtype=numpy.bool8)
+    input2 = numpy.zeros(shape = (9,9,90), dtype=numpy.bool8)
+    input3 = numpy.zeros(shape = (9,9,90), dtype=numpy.bool8)
+    input4 = numpy.zeros(shape = (9,9,90), dtype=numpy.bool8)
     
     #TODO: this is wrong. red_king_sq should not be here.
     #it should be relative to turn.
@@ -137,21 +139,25 @@ def parse_fen_to_indices(fen):
             piece_sq = horizontal_mirror[piece_sq]
 
         p = get_piece_type(piece_type, stm)
-        input1[0][king_sq_index[our_king]][p][piece_sq] = True
-        input1[1][king_sq_index[vertical_mirror[our_king]]][p][piece_sq] = True
+        input1[king_sq_index[our_king]][p][piece_sq] = True
+        input2[king_sq_index[vertical_mirror[our_king]]][p][piece_sq] = True
 
         p = get_piece_type(piece_type, not stm)
         if stm == False:
             piece_sq = horizontal_mirror[piece_sq]
 
-        input2[0][king_sq_index[opp_king]][p][piece_sq] = True
-        input2[1][king_sq_index[vertical_mirror[opp_king]]][p][piece_sq] = True
+        input3[king_sq_index[opp_king]][p][piece_sq] = True
+        input4[king_sq_index[vertical_mirror[opp_king]]][p][piece_sq] = True
 
-    input1 = input1.flatten()
-    input1 = tensorflow.sparse.from_dense(input1)
-    input2 = input2.flatten()
-    input2 = tensorflow.sparse.from_dense(input2)
-    return (input1, input2)
+    def flat(inp):
+        inp = inp.flatten()
+        return tensorflow.sparse.from_dense(inp)
+        
+    input1 = flat(input1)
+    input2 = flat(input2)
+    input3 = flat(input3)
+    input4 = flat(input4)
+    return (input1, input2, input3, input4)
 
 
 def create_nnue_model():
@@ -162,23 +168,30 @@ def create_nnue_model():
     90 = number of squares
     9x9x90 = 7290
 
-    reflect the board vertically mirror features x2
-    7290x2 = 14580
+    reflect the board vertically mirror features
     '''
-    input1 = tensorflow.keras.Input(shape=(14580,), sparse=True)
-    input2 = tensorflow.keras.Input(shape=(14580,), sparse=True)
-    feature_layer = tensorflow.keras.layers.Dense(32, name='feature_layer')
+    input1 = tensorflow.keras.Input(shape=(7290,), sparse=True)
+    input2 = tensorflow.keras.Input(shape=(7290,), sparse=True)
+    input3 = tensorflow.keras.Input(shape=(7290,), sparse=True)
+    input4 = tensorflow.keras.Input(shape=(7290,), sparse=True)
+    feature_layer = tensorflow.keras.layers.Dense(64, name='feature_layer')
     feature_relu  = tensorflow.keras.layers.ReLU(max_value = 1.0)
     concatenate   = tensorflow.keras.layers.Concatenate()
-    output_layer  = tensorflow.keras.layers.Dense(1, name='output_layer')
+    output_layer  = tensorflow.keras.layers.Dense(1, name='output_layer', use_bias=True)
 
     # create model
-    transform1    = feature_relu(feature_layer(input1))
-    transform2    = feature_relu(feature_layer(input2))
+    transform1    = feature_layer(input1)
+    transform2    = feature_layer(input2)
+    transform3    = feature_layer(input3)
+    transform4    = feature_layer(input4)
+
+    transfrom1    = feature_relu(transform1 + transform2)
+    transfrom2    = feature_relu(transform3 + transform4)
+
     transform     = concatenate([transform1, transform2])
     outputs       = output_layer(transform)
     model         = tensorflow.keras.Model(
-        inputs = (input1, input2), 
+        inputs = (input1, input2, input3, input4), 
         outputs = outputs,
         name = 'SHalfKP',
     )
@@ -201,21 +214,23 @@ def generate_xiangqi_data(filename):
                 continue
             evaluation = tensorflow.math.sigmoid(evaluation / SCALE_FACTOR)
             fen_string = tokens[1].rstrip().lstrip()[1:-2]
-            x0, x1 = parse_fen_to_indices(fen_string)
-            yield (x0, x1), float(evaluation)
+            x0, x1, x2, x3 = parse_fen_to_indices(fen_string)
+            yield (x0, x1, x2, x3), float(evaluation)
 
 
 train_dataset = tensorflow.data.Dataset.from_generator (
     generate_xiangqi_data, 
     args = ['xiangqi_evaluations.txt'],
     output_signature = (
-        (tensorflow.SparseTensorSpec(shape=(14580,), dtype=tensorflow.bool), 
-         tensorflow.SparseTensorSpec(shape=(14580,), dtype=tensorflow.bool)), 
+        (tensorflow.SparseTensorSpec(shape=(7290,), dtype=tensorflow.bool), 
+         tensorflow.SparseTensorSpec(shape=(7290,), dtype=tensorflow.bool), 
+         tensorflow.SparseTensorSpec(shape=(7290,), dtype=tensorflow.bool), 
+         tensorflow.SparseTensorSpec(shape=(7290,), dtype=tensorflow.bool)), 
         tensorflow.TensorSpec(shape=(), dtype=tensorflow.float32)
     )
 )
 
-batch_size = 128
+batch_size = 1024
 checkpoint_path = "model/cp-{epoch:04d}.ckpt"
 cp_callback = tensorflow.keras.callbacks.ModelCheckpoint(
     filepath = checkpoint_path, 
@@ -226,8 +241,8 @@ cp_callback = tensorflow.keras.callbacks.ModelCheckpoint(
 
 
 model = create_nnue_model()
-optimizer = tensorflow.keras.optimizers.Adam(
-    learning_rate = 0.0001
+optimizer = tensorflow.keras.optimizers.AdamW(
+    learning_rate = 0.00001
 )
 
 model.compile(
@@ -242,7 +257,7 @@ model.fit (
     train_dataset.batch(batch_size),
     steps_per_epoch = batch_size / 2,
     callbacks = [cp_callback],
-    epochs = 20,
+    epochs = 64,
     validation_steps = 128,
 )
 
