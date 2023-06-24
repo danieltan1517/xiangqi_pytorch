@@ -1,3 +1,4 @@
 *.txt
 .keras
 model/
+Makefile

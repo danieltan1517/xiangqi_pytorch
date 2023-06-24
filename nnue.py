@@ -4,7 +4,10 @@ import re
 
 #### Copy from Tensorflow NNUE:
 #https://github.com/DanielUranga/TensorFlowNNUE/blob/master/train/train.py
-
+if tensorflow.test.gpu_device_name():
+    print('Default GPU Device: {}'.format(tensorflow.test.gpu_device_name()))
+else:
+    print("Please install GPU version of TF")
 
 identity = [ 0,  1,  2,  3,  4,  5,  6,  7,  8,
              9, 10, 11, 12, 13, 14, 15, 16, 17,
@@ -177,7 +180,7 @@ def create_nnue_model():
     feature_layer = tensorflow.keras.layers.Dense(64, name='feature_layer')
     feature_relu  = tensorflow.keras.layers.ReLU(max_value = 1.0)
     concatenate   = tensorflow.keras.layers.Concatenate()
-    output_layer  = tensorflow.keras.layers.Dense(1, name='output_layer', use_bias=True)
+    output_layer  = tensorflow.keras.layers.Dense(1, name='output_layer', use_bias=False)
 
     # create model
     transform1    = feature_layer(input1)
@@ -210,7 +213,7 @@ def generate_xiangqi_data(filename):
         for line in lines:
             tokens = line.split(',')
             evaluation = int(tokens[0])
-            if abs(evaluation) > 600:
+            if abs(evaluation) > 600 and abs(evaluation) == 285:
                 continue
             evaluation = tensorflow.math.sigmoid(evaluation / SCALE_FACTOR)
             fen_string = tokens[1].rstrip().lstrip()[1:-2]
@@ -226,17 +229,17 @@ train_dataset = tensorflow.data.Dataset.from_generator (
          tensorflow.SparseTensorSpec(shape=(7290,), dtype=tensorflow.bool), 
          tensorflow.SparseTensorSpec(shape=(7290,), dtype=tensorflow.bool), 
          tensorflow.SparseTensorSpec(shape=(7290,), dtype=tensorflow.bool)), 
-        tensorflow.TensorSpec(shape=(), dtype=tensorflow.float32)
+         tensorflow.TensorSpec(shape=(), dtype=tensorflow.float32)
     )
 )
 
-batch_size = 1024
+batch_size = 128
 checkpoint_path = "model/cp-{epoch:04d}.ckpt"
 cp_callback = tensorflow.keras.callbacks.ModelCheckpoint(
     filepath = checkpoint_path, 
     verbose = 1, 
     save_weights_only = True,
-    save_freq = batch_size 
+    save_freq = batch_size
 )
 
 
@@ -248,16 +251,14 @@ optimizer = tensorflow.keras.optimizers.AdamW(
 model.compile(
     optimizer = optimizer,
     loss = 'mse',
-    metrics=[
-        tensorflow.keras.metrics.MeanSquaredError(),
-    ]
+    metrics=[tensorflow.keras.metrics.MeanSquaredError(),]
 )
 
 model.fit (
     train_dataset.batch(batch_size),
-    steps_per_epoch = batch_size / 2,
+    steps_per_epoch = batch_size,
     callbacks = [cp_callback],
-    epochs = 64,
+    epochs = 256,
     validation_steps = 128,
 )
 
