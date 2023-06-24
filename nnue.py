@@ -239,7 +239,7 @@ cp_callback = tensorflow.keras.callbacks.ModelCheckpoint(
     filepath = checkpoint_path, 
     verbose = 1, 
     save_weights_only = True,
-    save_freq = batch_size
+    save_freq = batch_size * 8
 )
 
 
@@ -258,7 +258,7 @@ model.fit (
     train_dataset.batch(batch_size),
     steps_per_epoch = batch_size,
     callbacks = [cp_callback],
-    epochs = 256,
+    epochs = 512,
     validation_steps = 128,
 )
 
