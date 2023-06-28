@@ -1,4 +1,5 @@
 import tensorflow
+import random
 import numpy
 import re
 
@@ -178,7 +179,7 @@ def create_nnue_model():
     input3 = tensorflow.keras.Input(shape=(7290,), sparse=True)
     input4 = tensorflow.keras.Input(shape=(7290,), sparse=True)
     feature_layer = tensorflow.keras.layers.Dense(64, name='feature_layer')
-    feature_relu  = tensorflow.keras.layers.ReLU(max_value = 255.0)
+    feature_relu  = tensorflow.keras.layers.ReLU(max_value = 1.0)
     concatenate   = tensorflow.keras.layers.Concatenate()
     output_layer  = tensorflow.keras.layers.Dense(1, name='output_layer', use_bias=False)
 
@@ -193,6 +194,7 @@ def create_nnue_model():
 
     transform     = concatenate([transform1, transform2])
     outputs       = output_layer(transform)
+    outputs       = tensorflow.sigmoid(outputs)
     model         = tensorflow.keras.Model(
         inputs = (input1, input2, input3, input4), 
         outputs = outputs,
@@ -207,16 +209,16 @@ def get_lines(filename):
 
 def generate_xiangqi_data(filename):
     # TODO: find a good scale factor.
-    SCALE_FACTOR = 500
+    SCALE_FACTOR = 400
     while True:
         lines = get_lines(filename)
+        random.shuffle(lines)
         for line in lines:
             tokens = line.split(',')
             evaluation = int(tokens[0])
             if abs(evaluation) > 600 and abs(evaluation) == 285:
                 continue
-            evaluation = tensorflow.math.sigmoid(evaluation / SCALE_FACTOR) - 0.5
-            evaluation *= 500 * 2
+            evaluation = tensorflow.math.sigmoid(evaluation / SCALE_FACTOR)
             fen_string = tokens[1].rstrip().lstrip()[1:-2]
             x0, x1, x2, x3 = parse_fen_to_indices(fen_string)
             yield (x0, x1, x2, x3), float(evaluation)
@@ -234,7 +236,7 @@ train_dataset = tensorflow.data.Dataset.from_generator (
     )
 )
 
-batch_size = 128
+batch_size = 256
 checkpoint_path = "model/cp-{epoch:04d}.ckpt"
 cp_callback = tensorflow.keras.callbacks.ModelCheckpoint(
     filepath = checkpoint_path, 
