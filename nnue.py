@@ -178,7 +178,7 @@ def create_nnue_model():
     input3 = tensorflow.keras.Input(shape=(7290,), sparse=True)
     input4 = tensorflow.keras.Input(shape=(7290,), sparse=True)
     feature_layer = tensorflow.keras.layers.Dense(64, name='feature_layer')
-    feature_relu  = tensorflow.keras.layers.ReLU(max_value = 1.0)
+    feature_relu  = tensorflow.keras.layers.ReLU(max_value = 255.0)
     concatenate   = tensorflow.keras.layers.Concatenate()
     output_layer  = tensorflow.keras.layers.Dense(1, name='output_layer', use_bias=False)
 
