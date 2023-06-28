@@ -259,7 +259,7 @@ model.fit (
     train_dataset.batch(batch_size),
     steps_per_epoch = batch_size,
     callbacks = [cp_callback],
-    epochs = 512,
+    epochs = 128,
     validation_steps = 128,
 )
 
