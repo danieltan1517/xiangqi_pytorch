@@ -207,7 +207,7 @@ def get_lines(filename):
 
 def generate_xiangqi_data(filename):
     # TODO: find a good scale factor.
-    SCALE_FACTOR = 310
+    SCALE_FACTOR = 500
     while True:
         lines = get_lines(filename)
         for line in lines:
@@ -215,7 +215,8 @@ def generate_xiangqi_data(filename):
             evaluation = int(tokens[0])
             if abs(evaluation) > 600 and abs(evaluation) == 285:
                 continue
-            evaluation = tensorflow.math.sigmoid(evaluation / SCALE_FACTOR)
+            evaluation = tensorflow.math.sigmoid(evaluation / SCALE_FACTOR) - 0.5
+            evaluation *= 500 * 2
             fen_string = tokens[1].rstrip().lstrip()[1:-2]
             x0, x1, x2, x3 = parse_fen_to_indices(fen_string)
             yield (x0, x1, x2, x3), float(evaluation)
@@ -244,9 +245,7 @@ cp_callback = tensorflow.keras.callbacks.ModelCheckpoint(
 
 
 model = create_nnue_model()
-optimizer = tensorflow.keras.optimizers.AdamW(
-    learning_rate = 0.00001
-)
+optimizer = tensorflow.keras.optimizers.AdamW()
 
 model.compile(
     optimizer = optimizer,
