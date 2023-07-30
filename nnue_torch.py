@@ -2,7 +2,7 @@ import torch
 
 epochs = 2000
 
-class Network(torch.nn.Module):
+class NNUE(torch.nn.Module):
 
   def __init__(self):
     super(Network, self).__init__()
@@ -16,7 +16,7 @@ class Network(torch.nn.Module):
     return torch.sigmoid(self.output(accum))
 
 
-n = Network()
+n = NNUE()
 model     = n.to(torch.device("cpu"))
 mse_error = torch.nn.MSELoss()
 opt       = torch.optim.Adam(model.parameters(), lr=0.001)
