@@ -195,23 +195,22 @@ def quantize(weights, biases, dtype):
     #min_weight = 0 #min(tensorflow.math.reduce_min(weights), tensorflow.math.reduce_min(biases))
     #(weights,_,_) = tensorflow.quantization.quantize(weights, min_weight, max_weight, dtype)
     #(biases,_,_)  = tensorflow.quantization.quantize(biases,  min_weight, max_weight, dtype)
-    weights = weights * 2048 * 1.15
+    weights = weights * 128 
     weights = weights.numpy().astype(dtype)
-    print(numpy.max(weights))
-    print(numpy.min(weights))
-    biases  = biases * 2048 * 1.15
+    biases  = biases * 128 
     biases  = biases.numpy().astype(dtype).flatten()
-    print(numpy.max(biases))
-    print(numpy.min(biases))
-    print(weights, biases)
+    #print(numpy.max(weights))
+    #print(numpy.min(weights))
+    #print(numpy.max(biases))
+    #print(numpy.min(biases))
+    #print(weights, biases)
     return weights, biases
 
 def quantize_layer2(weights, dtype):
-    weights = weights * 2048 * 1.15
+    weights = weights * 256 
     weights = weights.numpy().astype(dtype).transpose()
-    print(numpy.max(weights))
-    print(numpy.min(weights))
-    print(weights)
+    #print(numpy.max(weights))
+    #print(weights)
     return weights
 
 latest = tensorflow.train.latest_checkpoint('/home/danieltan/Documents/xiangqi_tensorflow/model')
@@ -234,8 +233,8 @@ def evaluate(fen, expected):
     i2 =  layer1_weights.dot(i2) + layer1_biases
     i3 =  layer1_weights.dot(i3) + layer1_biases
     i4 =  layer1_weights.dot(i4) + layer1_biases
-    i1 =  numpy.clip((i1 + i2), 0, 0x7F)
-    i2 =  numpy.clip((i3 + i4), 0, 0x7F)
+    i1 =  numpy.clip((i1 + i2), 0, 127)
+    i2 =  numpy.clip((i3 + i4), 0, 127)
     vec = numpy.concatenate([i1,i2])
     vec = layer2_weights.dot(vec)[0] // 128
     print('(quantized, dataset)', (vec, expected), fen)
@@ -247,11 +246,7 @@ evaluate("r2akabr1/9/1cn1b4/p1p5p/9/1CP1p1N2/P4R2P/2N1C2c1/7n1/R1BAKAB2 b - - 0 
 evaluate("2bk1ab2/4a4/6r2/5c3/9/9/7R1/4B4/4A4/2BAK4 b - - 0 1", 283)
 evaluate("4k4/4a4/4ba3/6P2/4cNb2/5p3/5n3/3AB3N/4A4/2B2K3 w - - 0 1", 15)
 
-'''
 with open('model.nnue', 'wb') as network:
     network.write(layer1_weights.tobytes())
     network.write(layer1_biases.tobytes())
     network.write(layer2_weights.tobytes())
-    network.write(layer2_biases.tobytes())
-'''
-
