@@ -1,9 +1,13 @@
 import torch
+import time
 import random
 import numpy
 import re
 
-epochs = 1
+epochs = 3
+batch_size = 256
+learning_rate = 0.0001
+device = "cuda"  # either 'cpu' or 'cuda'
 
 identity = [ 0,  1,  2,  3,  4,  5,  6,  7,  8,
              9, 10, 11, 12, 13, 14, 15, 16, 17,
@@ -55,7 +59,6 @@ def get_piece(p):
     return 9
   elif p == 'k':
     return 10
-  print(p)
   assert(False)
 
 # stm = side to move. True=red. False=black.
@@ -150,24 +153,36 @@ def generate_evaluations(lines, num):
         if i >= num:
             break
 
+def sigmoid(z):
+    return (1.0 / (1.0 + numpy.exp(-z))).astype(numpy.float32)
+
 class XiangqiDataset(torch.utils.data.Dataset):
 
     def __init__(self, filename):
         super(XiangqiDataset, self).__init__()
         lines = None
         self.data = []
+        SCALE_FACTOR = 400.0
         with open(filename) as file:
-            pass
-            #self.lines = file.readlines()
-            #self.lines
+            for line in file.readlines():
+                tokens = line.split(',')
+                evaluation = int(tokens[0])
+                if abs(evaluation) > 600 and abs(evaluation) == 285:
+                    continue
+                evaluation = sigmoid(evaluation / SCALE_FACTOR)
+                evaluation = torch.tensor([evaluation])
+                fen = tokens[1].rstrip().lstrip()[1:-2]
+                self.data.append((fen, evaluation))
+                
 
     def __len__(self):
-        return len(self.lines)
+        return len(self.data)
 
 
     def __getitem__(self, idx):
-        fen = self.lines[idx]
-        W,B = parse_fen_to_indices(fen)
+        (fen, evaluation) = self.data[idx]
+        white, black = parse_fen_to_indices(fen)
+        return (white,black), evaluation
 
 class NNUE(torch.nn.Module):
 
@@ -179,39 +194,38 @@ class NNUE(torch.nn.Module):
     def forward(self, white, black):
         white = self.feature(white)
         black = self.feature(black)
-        accum = torch.clamp(torch.cat([white, black]), 0.0, 1.0)
+        accum = torch.clamp(torch.cat([white, black], dim=1), 0.0, 1.0)
         return torch.sigmoid(self.output(accum))
 
 
 n = NNUE()
-model     = n.to(torch.device("cuda"))
+model     = n.to(torch.device(device))
 mse_error = torch.nn.MSELoss()
-opt       = torch.optim.Adam(model.parameters(), lr=0.0001)
+opt       = torch.optim.Adam(model.parameters(), lr=learning_rate)
+dataset = XiangqiDataset('xiangqi_evaluations.txt')
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+print('Xiangqi NNUE Data Loaded Successfully.')
 
-#W, B = parse_fen_to_indices("2rakabr1/9/4b1n2/5R2p/p1c1p1p2/1R6P/P1P3c2/N3C1N2/4A4/2B1KAB2 w - - 0 1")
-#X = torch.tensor([0.0] * 7290)
-#Y = torch.tensor([.4])
-lines = get_lines('xiangqi_evaluations.txt')
 
 for e in range(epochs):
-  print(f'Epoch {e+1} out of {epochs}')
-  i = 0
-  for data in generate_evaluations(lines, 128):
-    (W, B), evaluation = data
+  print(f'Starting Epoch {e+1:3} out of {epochs:4}...')
+  start = time.time()
+  for data in dataloader:
+    ((white,black), evaluation) = data
     # forward propagation.
-    W = W.to(device="cuda")
-    B = B.to(device="cuda")
-    evaluation = evaluation.to(device="cuda")
-    score = model(W, B)
+    white = white.to(device=device)
+    black = black.to(device=device)
+    evaluation = evaluation.to(device=device)
+    score = model(white, black)
 
     # back propagation.
     loss = mse_error(score, evaluation)
-    print(i, loss)
-    i += 1
     opt.zero_grad()
     loss.backward()
     opt.step()
 
-
+  end = time.time()
+  time_taken = end - start
+  print(f'Finished Epoch {e+1:3} out of {epochs:4}. Mean Squared Error Loss: {loss:8.4e}. Time Taken: {time_taken:8.4e} seconds')
 
 
