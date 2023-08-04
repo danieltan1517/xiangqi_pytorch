@@ -4,7 +4,7 @@ import random
 import numpy
 import re
 
-epochs = 1
+epochs = 256
 batch_size = 256
 learning_rate = 0.0001
 device = "cuda"  # either 'cpu' or 'cuda'
@@ -210,6 +210,8 @@ for e in range(epochs):
   end = time.time()
   time_taken = end - start
   print(f'Finished Epoch {e+1:3} out of {epochs:4}. Mean Squared Error Loss: {loss:8.4e}. Time Taken: {time_taken:8.4e} seconds')
+  # backup in case the computer crashes...
+  torch.save(model, path)
 
 
 torch.save(model, path)
