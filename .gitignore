@@ -1,5 +1,6 @@
 *.txt
 .keras
 model/
+model
 Makefile
 *.nnue

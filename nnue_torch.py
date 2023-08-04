@@ -4,10 +4,11 @@ import random
 import numpy
 import re
 
-epochs = 3
+epochs = 1
 batch_size = 256
 learning_rate = 0.0001
 device = "cuda"  # either 'cpu' or 'cuda'
+path = "model" # path of saved model
 
 identity = [ 0,  1,  2,  3,  4,  5,  6,  7,  8,
              9, 10, 11, 12, 13, 14, 15, 16, 17,
@@ -135,24 +136,6 @@ def parse_fen_to_indices(fen):
     else:
         return (input2, input1)
 
-def generate_evaluations(lines, num):
-    # TODO: find a good scale factor.
-    SCALE_FACTOR = 400
-    random.shuffle(lines)
-    i = 0
-    for line in lines:
-        tokens = line.split(',')
-        evaluation = int(tokens[0])
-        if abs(evaluation) > 600 and abs(evaluation) == 285:
-            continue
-        evaluation = torch.sigmoid(torch.tensor([evaluation]) / SCALE_FACTOR)
-        fen_string = tokens[1].rstrip().lstrip()[1:-2]
-        W, B = parse_fen_to_indices(fen_string)
-        yield (W,B), evaluation
-        i += 1
-        if i >= num:
-            break
-
 def sigmoid(z):
     return (1.0 / (1.0 + numpy.exp(-z))).astype(numpy.float32)
 
@@ -229,3 +212,4 @@ for e in range(epochs):
   print(f'Finished Epoch {e+1:3} out of {epochs:4}. Mean Squared Error Loss: {loss:8.4e}. Time Taken: {time_taken:8.4e} seconds')
 
 
+torch.save(model, path)
