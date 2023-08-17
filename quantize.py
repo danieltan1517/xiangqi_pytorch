@@ -4,7 +4,7 @@ import random
 import numpy
 import re
 
-SCALE_FACTOR = 400.0
+SCALE_FACTOR = 660.0
 path = 'model'
 
 identity = [ 0,  1,  2,  3,  4,  5,  6,  7,  8,
@@ -29,10 +29,9 @@ mirror_id = [81, 82, 83, 84, 85, 86, 87, 88, 89,
               9, 10, 11, 12, 13, 14, 15, 16, 17,
               0,  1,  2,  3,  4,  5,  6,  7,  8]
 
-
-king_sq_index = [None, None, None,  0,  1,  2, None, None, None,
-                 None, None, None,  3,  4,  5, None, None, None,
-                 None, None, None,  6,  7,  8, None, None, None]
+king_sq_index = [None, None, None,  1,  0,  1, None, None, None,
+                 None, None, None,  2,  1,  2, None, None, None,
+                 None, None, None,  2,  2,  2, None, None, None]
 
 def get_piece(p):
   if p == 'a' or p == 'A' or p == 'B' or p == 'b':
@@ -105,8 +104,8 @@ def parse_fen_to_indices(fen):
     elif tokens[1] == 'b':
         stm = False
 
-    input1 = numpy.zeros(shape = (9,9,90), dtype=numpy.int32)
-    input2 = numpy.zeros(shape = (9,9,90), dtype=numpy.int32)
+    input1 = numpy.zeros(shape = (3,9,90), dtype=numpy.int32)
+    input2 = numpy.zeros(shape = (3,9,90), dtype=numpy.int32)
 
     def mirror_values(stm: bool, ksq: int, piece: int, sq: int, mirror):
         ksq = king_sq_index[mirror[ksq]]
@@ -141,13 +140,13 @@ class NNUE(torch.nn.Module):
 
     def __init__(self):
         super(NNUE, self).__init__()
-        self.feature = torch.nn.Linear(7290, 256)
+        self.feature = torch.nn.Linear(2430, 256)
         self.output  = torch.nn.Linear(512, 1)
 
     def forward(self, white, black):
         white = self.feature(white)
         black = self.feature(black)
-        accum = torch.clamp(torch.cat([white, black]), 0.0, 1.0)
+        accum = torch.clamp(torch.cat([white, black], dim=1), 0.0, 1.0)
         return torch.sigmoid(self.output(accum))
 
 model = torch.load(path, map_location=torch.device('cpu'))
