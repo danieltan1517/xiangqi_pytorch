@@ -5,8 +5,8 @@ import random
 import numpy
 import re
 
-epochs = 256
-batch_size = 262144 
+epochs = 128
+batch_size = 65536
 learning_rate = 0.00001
 device = "cuda"  # either 'cpu' or 'cuda'
 path = "model" # path of saved model
@@ -147,7 +147,7 @@ class XiangqiDataset(torch.utils.data.Dataset):
 
     def __init__(self, filename):
         super(XiangqiDataset, self).__init__()
-        dataframe = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str})
+        dataframe = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str}, nrows=10000000)
         self.evals = dataframe['eval']
         self.positions = dataframe['positions']
         self.length = len(self.evals)
@@ -182,7 +182,7 @@ model     = n.to(torch.device(device))
 mse_error = torch.nn.MSELoss()
 opt       = torch.optim.Adam(model.parameters(), lr=learning_rate)
 dataset = XiangqiDataset(filename)
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
 print('Xiangqi NNUE Data Loaded Successfully.')
 
 
