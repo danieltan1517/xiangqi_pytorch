@@ -1,3 +1,4 @@
+import pandas
 import torch
 import time
 import random
@@ -5,10 +6,12 @@ import numpy
 import re
 
 epochs = 256
-batch_size = 16384
+batch_size = 262144 
 learning_rate = 0.00001
 device = "cuda"  # either 'cpu' or 'cuda'
 path = "model" # path of saved model
+filename = "xgames.txt"
+
 
 identity = [ 0,  1,  2,  3,  4,  5,  6,  7,  8,
              9, 10, 11, 12, 13, 14, 15, 16, 17,
@@ -74,6 +77,7 @@ def get_piece_type(p, stm):
         return p + 4
 
 def parse_fen_to_indices(fen):
+    fen = fen.strip()
     tokens = re.split('\s+', fen)
     lines  = tokens[0].split('/')
     red_king_sq = None
@@ -143,26 +147,19 @@ class XiangqiDataset(torch.utils.data.Dataset):
 
     def __init__(self, filename):
         super(XiangqiDataset, self).__init__()
-        lines = None
-        self.data = []
-        SCALE_FACTOR = 660.0
-        with open(filename) as file:
-            for line in file.readlines():
-                tokens = line.split(',')
-                evaluation = int(tokens[0])
-                if abs(evaluation) > 600 and abs(evaluation) == 285:
-                    continue
-                evaluation = sigmoid(evaluation / SCALE_FACTOR)
-                evaluation = torch.tensor([evaluation])
-                fen = tokens[1].rstrip().lstrip()[1:-2]
-                self.data.append((fen, evaluation))
+        dataframe = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str})
+        self.evals = dataframe['eval']
+        self.positions = dataframe['positions']
+        self.length = len(self.evals)
 
     def __len__(self):
-        return len(self.data)
+        return self.length
 
 
     def __getitem__(self, idx):
-        (fen, evaluation) = self.data[idx]
+        evaluation = self.evals[idx]
+        evaluation = torch.tensor([sigmoid(evaluation / 400.0)])
+        fen = self.positions[idx]
         white, black = parse_fen_to_indices(fen)
         return (white,black), evaluation
 
@@ -184,7 +181,7 @@ n = NNUE()
 model     = n.to(torch.device(device))
 mse_error = torch.nn.MSELoss()
 opt       = torch.optim.Adam(model.parameters(), lr=learning_rate)
-dataset = XiangqiDataset('xiangqi_evaluations.txt')
+dataset = XiangqiDataset(filename)
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
 print('Xiangqi NNUE Data Loaded Successfully.')
 
@@ -199,7 +196,6 @@ for e in range(epochs):
     black = black.to(device=device)
     evaluation = evaluation.to(device=device)
     score = model(white, black)
-
     # back propagation.
     loss = mse_error(score, evaluation)
     opt.zero_grad()

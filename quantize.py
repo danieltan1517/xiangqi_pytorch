@@ -176,7 +176,7 @@ def evaluation(actual, fen):
   B = feature_weight @ B + feature_biases
   accum = numpy.clip(numpy.concatenate([W,B]), 0, 127)
   result = (output_weight @ accum + output_biases)[0]
-  result //= 16
+  result //= 8
   print(f'Guess: {result}, actual: {actual}')
 
 evaluation(-107, "2rakabr1/9/4b1n2/5R2p/p1c1p1p2/1R6P/P1P3c2/N3C1N2/4A4/2B1KAB2 w - - 0 1")
