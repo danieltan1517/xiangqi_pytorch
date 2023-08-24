@@ -6,7 +6,7 @@ import numpy
 import re
 
 epochs = 128
-batch_size = 65536
+batch_size = 262144
 learning_rate = 8.75e-4
 device = "cuda"  # either 'cpu' or 'cuda'
 path = "model" # path of saved model
@@ -182,7 +182,7 @@ model     = n.to(torch.device(device))
 mse_error = torch.nn.MSELoss()
 opt       = torch.optim.Adam(model.parameters(), lr=learning_rate)
 dataset = XiangqiDataset(filename)
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 print('Xiangqi NNUE Data Loaded Successfully.')
 
 
