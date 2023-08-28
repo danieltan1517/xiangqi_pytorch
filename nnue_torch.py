@@ -149,7 +149,7 @@ class XiangqiDataset(torch.utils.data.Dataset):
 
     def __init__(self, filename):
         super(XiangqiDataset, self).__init__()
-        dataframe = pandas.read_csv(filename, sep=", ", dtype={'eval':numpy.int16, 'positions':str})
+        dataframe = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str})
         self.evals = dataframe['eval']
         self.positions = dataframe['positions']
         self.length = len(self.evals)
