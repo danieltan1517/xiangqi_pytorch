@@ -5,12 +5,12 @@ import random
 import numpy
 import re
 
-epochs = 128
+epochs = 32
 batch_size = 262144
 learning_rate = 8.75e-4
 device = "cuda"  # either 'cpu' or 'cuda'
 path = "model" # path of saved model
-filename = "xgames.txt"
+filename = "xiangqi_evaluations.txt"
 
 
 identity = [ 0,  1,  2,  3,  4,  5,  6,  7,  8,
@@ -63,6 +63,7 @@ def get_piece(p):
     return 9
   elif p == 'k':
     return 10
+  print(p)
   assert(False)
 
 # stm = side to move. True=red. False=black.
@@ -78,6 +79,7 @@ def get_piece_type(p, stm):
 
 def parse_fen_to_indices(fen):
     fen = fen.strip()
+    fen = fen[1:-1]
     tokens = re.split('\s+', fen)
     lines  = tokens[0].split('/')
     red_king_sq = None
@@ -147,7 +149,7 @@ class XiangqiDataset(torch.utils.data.Dataset):
 
     def __init__(self, filename):
         super(XiangqiDataset, self).__init__()
-        dataframe = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str})
+        dataframe = pandas.read_csv(filename, sep=", ", dtype={'eval':numpy.int16, 'positions':str})
         self.evals = dataframe['eval']
         self.positions = dataframe['positions']
         self.length = len(self.evals)
@@ -167,8 +169,8 @@ class NNUE(torch.nn.Module):
 
     def __init__(self):
         super(NNUE, self).__init__()
-        self.feature = torch.nn.Linear(2430, 256)
-        self.output  = torch.nn.Linear(512, 1)
+        self.feature = torch.nn.Linear(2430, 16)
+        self.output  = torch.nn.Linear(32, 1)
 
     def forward(self, white, black):
         white = self.feature(white)
@@ -182,7 +184,7 @@ model     = n.to(torch.device(device))
 mse_error = torch.nn.MSELoss()
 opt       = torch.optim.Adam(model.parameters(), lr=learning_rate)
 dataset = XiangqiDataset(filename)
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
 print('Xiangqi NNUE Data Loaded Successfully.')
 
 
