@@ -78,8 +78,6 @@ def get_piece_type(p, stm):
         return p + 4
 
 def parse_fen_to_indices(fen):
-    fen = fen.strip()
-    fen = fen[1:-1]
     tokens = re.split('\s+', fen)
     lines  = tokens[0].split('/')
     red_king_sq = None
@@ -149,7 +147,7 @@ class XiangqiDataset(torch.utils.data.Dataset):
 
     def __init__(self, filename):
         super(XiangqiDataset, self).__init__()
-        dataframe = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str})
+        dataframe = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str}, nrows=1000)
         self.evals = dataframe['eval']
         self.positions = dataframe['positions']
         self.length = len(self.evals)
