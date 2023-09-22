@@ -5,9 +5,9 @@ import random
 import numpy
 import re
 
-epochs = 32
-batch_size = 262144
-learning_rate = 8.75e-4
+epochs = 1024
+batch_size = 16384
+learning_rate = 1e-3
 device = "cuda"  # either 'cpu' or 'cuda'
 path = "model" # path of saved model
 filename = "xiangqi_evaluations.txt"
@@ -24,6 +24,7 @@ identity = [ 0,  1,  2,  3,  4,  5,  6,  7,  8,
             72, 73, 74, 75, 76, 77, 78, 79, 80,
             81, 82, 83, 84, 85, 86, 87, 88, 89]
 
+
 mirror_id = [81, 82, 83, 84, 85, 86, 87, 88, 89,
              72, 73, 74, 75, 76, 77, 78, 79, 80,
              63, 64, 65, 66, 67, 68, 69, 70, 71,
@@ -39,6 +40,7 @@ mirror_id = [81, 82, 83, 84, 85, 86, 87, 88, 89,
 king_sq_index = [None, None, None,  1,  0,  1, None, None, None,
                  None, None, None,  2,  1,  2, None, None, None,
                  None, None, None,  2,  2,  2, None, None, None]
+
 
 def get_piece(p):
   if p == 'a' or p == 'A' or p == 'B' or p == 'b':
@@ -66,6 +68,7 @@ def get_piece(p):
   print(p)
   assert(False)
 
+
 # stm = side to move. True=red. False=black.
 def get_piece_type(p, stm):
     if p == 0:
@@ -76,6 +79,7 @@ def get_piece_type(p, stm):
         return p - 4
     else:
         return p + 4
+
 
 def parse_fen_to_indices(fen):
     tokens = re.split('\s+', fen)
@@ -140,17 +144,27 @@ def parse_fen_to_indices(fen):
     else:
         return (input2, input1)
 
+
 def sigmoid(z):
     return (1.0 / (1.0 + numpy.exp(-z))).astype(numpy.float32)
 
+
 class XiangqiDataset(torch.utils.data.Dataset):
 
-    def __init__(self, filename):
+
+    def __init__(self, filename: str):
         super(XiangqiDataset, self).__init__()
         dataframe = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str}, nrows=1000)
         self.evals = dataframe['eval']
         self.positions = dataframe['positions']
         self.length = len(self.evals)
+
+
+    def __init__(self, dataset: pandas.DataFrame):
+        self.evals = dataset['eval']
+        self.positions = dataset['positions']
+        self.length = len(self.evals)
+        
 
     def __len__(self):
         return self.length
@@ -163,12 +177,25 @@ class XiangqiDataset(torch.utils.data.Dataset):
         white, black = parse_fen_to_indices(fen)
         return (white,black), evaluation
 
+
+def create_datasets(filename, factor=0.8):
+    dataset = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str})
+    train = dataset.sample(frac=factor,random_state=0, ignore_index=True)
+    test  = dataset.drop(train.index, axis='index')
+    test.reset_index(inplace=True)
+    train_dataset = XiangqiDataset(train)
+    test_dataset = XiangqiDataset(test)
+    return train_dataset, test_dataset
+    
+
 class NNUE(torch.nn.Module):
+
 
     def __init__(self):
         super(NNUE, self).__init__()
-        self.feature = torch.nn.Linear(2430, 16)
-        self.output  = torch.nn.Linear(32, 1)
+        self.feature = torch.nn.Linear(2430, 256)
+        self.output  = torch.nn.Linear(512, 1)
+
 
     def forward(self, white, black):
         white = self.feature(white)
@@ -177,19 +204,40 @@ class NNUE(torch.nn.Module):
         return torch.sigmoid(self.output(accum))
 
 
-n = NNUE()
-model     = n.to(torch.device(device))
+def validation_dataset(test_dataloader, model, mse_error):
+  with torch.no_grad():
+    avg_loss = 0.0
+    n = 0
+    for data in test_dataloader:
+      ((white,black), evaluation) = data
+      white = white.to(device=device)
+      black = black.to(device=device)
+      evaluation = evaluation.to(device=device)
+      score = model(white, black)
+      loss = mse_error(score, evaluation)
+      avg_loss += loss.data.item()
+      n += 1
+    avg_loss /= n
+    return avg_loss
+
+
+
+nnue = NNUE()
+model     = nnue.to(torch.device(device))
 mse_error = torch.nn.MSELoss()
 opt       = torch.optim.Adam(model.parameters(), lr=learning_rate)
-dataset = XiangqiDataset(filename)
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+train_dataset, test_dataset = create_datasets(filename)
+train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+test_dataloader  = torch.utils.data.DataLoader(test_dataset,  batch_size=batch_size, shuffle=False)
 print('Xiangqi NNUE Data Loaded Successfully.')
 
-
+tolerance = 0
+total_loss = float('inf')
 for e in range(epochs):
   print(f'Starting Epoch {e+1:3} out of {epochs:4}...')
+  model.train()
   start = time.time()
-  for data in dataloader:
+  for data in train_dataloader:
     ((white,black), evaluation) = data
     # forward propagation.
     white = white.to(device=device)
@@ -197,16 +245,31 @@ for e in range(epochs):
     evaluation = evaluation.to(device=device)
     score = model(white, black)
     # back propagation.
-    loss = mse_error(score, evaluation)
     opt.zero_grad()
+    loss = mse_error(score, evaluation)
     loss.backward()
     opt.step()
 
+  model.eval()
   end = time.time()
   time_taken = end - start
   print(f'Finished Epoch {e+1:3} out of {epochs:4}. Mean Squared Error Loss: {loss:8.4e}. Time Taken: {time_taken:8.4e} seconds')
-  # backup in case the computer crashes...
-  torch.save(model, path)
+
+  average_loss = validation_dataset(test_dataloader, model, mse_error)
+  print(f'Average Validation Loss: {average_loss}. Total Loss: {total_loss}')
+  if average_loss < total_loss:
+    # save the model with the lowest average validation loss.
+    print('Saving Model...')
+    tolerance = 0
+    total_loss = average_loss
+    torch.save(model, path)
+  else:
+    tolerance += 1
+    if tolerance >= 10:
+      print('Model stopped getting better...')
+      break
 
 
-torch.save(model, path)
+
+
+
