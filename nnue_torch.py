@@ -179,7 +179,7 @@ class XiangqiDataset(torch.utils.data.Dataset):
 
 
 def create_datasets(filename, factor=0.8, eval_margin=150):
-    dataset = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str}, nrows=100000)
+    dataset = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str})
     dataset = dataset.loc[(dataset['eval'] >= -eval_margin) & (dataset['eval'] <= eval_margin)]
     dataset.reset_index(inplace=True)
     print(f'Loaded {len(dataset)} pairs of data.')
