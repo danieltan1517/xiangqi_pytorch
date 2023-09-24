@@ -7,7 +7,7 @@ import re
 
 epochs = 1024
 batch_size = 16384
-learning_rate = 1e-3
+learning_rate = 8.75e-3
 device = "cuda"  # either 'cpu' or 'cuda'
 path = "model" # path of saved model
 filename = "xiangqi_evaluations.txt"
