@@ -140,14 +140,15 @@ class NNUE(torch.nn.Module):
 
     def __init__(self):
         super(NNUE, self).__init__()
-        self.feature = torch.nn.Linear(2430, 256)
-        self.output  = torch.nn.Linear(512, 1)
+        self.feature = torch.nn.Linear(2430, 128)
+        self.output  = torch.nn.Linear(256, 1)
 
     def forward(self, white, black):
         white = self.feature(white)
         black = self.feature(black)
         accum = torch.clamp(torch.cat([white, black], dim=1), 0.0, 1.0)
         return torch.sigmoid(self.output(accum))
+
 
 model = torch.load(path, map_location=torch.device('cpu'))
 params = model.state_dict()
@@ -167,7 +168,7 @@ output_biases  = torch.round(output_biases  * 127.0 * 127.0)
 # convert to numpy.
 feature_weight = feature_weight.numpy().astype(numpy.int16)
 feature_biases = feature_biases.numpy().astype(numpy.int16)
-output_weight  = output_weight.numpy().astype(numpy.int8)
+output_weight  = output_weight.numpy().astype(numpy.int16)
 output_biases  = output_biases.numpy().astype(numpy.int32)
 
 def evaluation(actual, fen):
@@ -176,13 +177,13 @@ def evaluation(actual, fen):
   B = feature_weight @ B + feature_biases
   accum = numpy.clip(numpy.concatenate([W,B]), 0, 127)
   result = (output_weight @ accum + output_biases)[0]
-  result //= 64
+  result //= 32
   print(f'Guess: {result}, actual: {actual}')
 
-evaluation(-107, "2rakabr1/9/4b1n2/5R2p/p1c1p1p2/1R6P/P1P3c2/N3C1N2/4A4/2B1KAB2 w - - 0 1")
-evaluation(369, "2b1ka3/4a4/2R1b4/3r5/4R4/6P2/c8/9/4A4/2BAK1B2 w - - 0 1")
-evaluation(-251, "3ak2C1/9/2n1bR2b/8p/9/2P1r3P/9/4B4/4A4/2BA1K3 b - - 0 1")
-evaluation(65, "r3kab2/4a4/2n1b4/p1p1p3p/9/2P1P1B2/PR6R/C1N1C4/9/2BcKA1r1 b - - 0 1")
+
+evaluation(-2,"rnbakabnr/9/1c5c1/p1p1p1p1p/9/2P6/P3P1P1P/1C5C1/9/RNBAKABNR b - - 0 1")
+evaluation(116,"r1bakabC1/9/2n4cr/p1p1p1p1p/9/2P6/P3P1P1P/1C7/R8/1cBAKABNR w - - 0 1")
+evaluation(114,"r1bakabC1/9/2n4cr/p1p1p1p1p/9/2P6/P3P1P1P/1C2B4/R8/1cBAKA1NR b - - 0 1")
 
 # create binary data:
 
@@ -201,5 +202,4 @@ with open('xiangqi.nnue', 'wb') as f:
 
     # write the output biases
     f.write(output_biases.tobytes())
-
 

@@ -178,8 +178,11 @@ class XiangqiDataset(torch.utils.data.Dataset):
         return (white,black), evaluation
 
 
-def create_datasets(filename, factor=0.8):
-    dataset = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str})
+def create_datasets(filename, factor=0.8, eval_margin=150):
+    dataset = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str}, nrows=100000)
+    dataset = dataset.loc[(dataset['eval'] >= -eval_margin) & (dataset['eval'] <= eval_margin)]
+    dataset.reset_index(inplace=True)
+    print(f'Loaded {len(dataset)} pairs of data.')
     train = dataset.sample(frac=factor,random_state=0, ignore_index=True)
     test  = dataset.drop(train.index, axis='index')
     test.reset_index(inplace=True)
@@ -193,8 +196,8 @@ class NNUE(torch.nn.Module):
 
     def __init__(self):
         super(NNUE, self).__init__()
-        self.feature = torch.nn.Linear(2430, 256)
-        self.output  = torch.nn.Linear(512, 1)
+        self.feature = torch.nn.Linear(2430, 128)
+        self.output  = torch.nn.Linear(256, 1)
 
 
     def forward(self, white, black):
