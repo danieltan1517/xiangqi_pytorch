@@ -196,14 +196,18 @@ class NNUE(torch.nn.Module):
 
     def __init__(self):
         super(NNUE, self).__init__()
-        self.feature = torch.nn.Linear(2430, 128)
-        self.output  = torch.nn.Linear(256, 1)
+        self.feature = torch.nn.Linear(2430, 256)
+        self.hidden1 = torch.nn.Linear(512, 32)
+        self.hidden2 = torch.nn.Linear(32, 32)
+        self.output  = torch.nn.Linear(32, 1)
 
 
     def forward(self, white, black):
         white = self.feature(white)
         black = self.feature(black)
         accum = torch.clamp(torch.cat([white, black], dim=1), 0.0, 1.0)
+        accum = torch.clamp(self.hidden1(accum), 0.0, 1.0)
+        accum = torch.clamp(self.hidden2(accum), 0.0, 1.0)
         return torch.sigmoid(self.output(accum))
 
 
@@ -229,15 +233,16 @@ nnue = NNUE()
 model     = nnue.to(torch.device(device))
 mse_error = torch.nn.MSELoss()
 opt       = torch.optim.Adam(model.parameters(), lr=learning_rate)
-train_dataset, test_dataset = create_datasets(filename)
+train_dataset, test_dataset = create_datasets(filename, 0.8, 1500)
 train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 test_dataloader  = torch.utils.data.DataLoader(test_dataset,  batch_size=batch_size, shuffle=False, num_workers=num_workers)
 print('Xiangqi NNUE Data Loaded Successfully.')
 
 tolerance = 0
 total_loss = float('inf')
+centipawn = sigmoid(1 / 400.0) - .5
 for e in range(epochs):
-  print(f'Starting Epoch {e+1:3} out of {epochs:4}...')
+  print(f'Starting Epoch {e+1:3} out of {epochs:4}...Centipawn {centipawn}')
   model.train()
   start = time.time()
   for data in train_dataloader:
@@ -258,8 +263,11 @@ for e in range(epochs):
   time_taken = end - start
   print(f'Finished Epoch {e+1:3} out of {epochs:4}. Mean Squared Error Loss: {loss:8.4e}. Time Taken: {time_taken:8.4e} seconds')
 
+  start = time.time()
   average_loss = validation_dataset(test_dataloader, model, mse_error)
-  print(f'Average Validation Loss: {average_loss}. Total Loss: {total_loss}')
+  end = time.time()
+  time_taken = end - start
+  print(f'Average Validation Loss: {average_loss}. Total Loss: {total_loss}. Time Taken: {time_taken:8.4e} seconds')
   if average_loss < total_loss:
     # save the model with the lowest average validation loss.
     print('Saving Model...')
