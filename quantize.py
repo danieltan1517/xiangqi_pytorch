@@ -4,7 +4,7 @@ import random
 import numpy
 import re
 
-SCALE_FACTOR = 400.0
+SCALE_FACTOR = 360.0
 path = 'model'
 
 identity = [ 0,  1,  2,  3,  4,  5,  6,  7,  8,
@@ -167,7 +167,7 @@ output_biases  = params['output.bias']
 
 s_a = 127.0
 s_w = 64.0
-s_o = 400.0
+s_o = SCALE_FACTOR
 
 # simple quantization scheme: scale up the weights/biases. multiply by 127 and round.
 feature_weight = torch.round(feature_weight * s_a)
@@ -213,7 +213,7 @@ output_biases  = convert_to_int32(output_biases)
 def evaluation(actual, fen):
   W,B = parse_fen_to_indices(fen)
   wdl = model(torch.from_numpy(W.astype(numpy.float32)),torch.from_numpy(B.astype(numpy.float32)))
-  print(wdl, sigmoid(actual / 400.0))
+  print(wdl, sigmoid(actual / SCALE_FACTOR))
   W = feature_weight @ W + feature_biases
   B = feature_weight @ B + feature_biases
   accum = numpy.clip(numpy.concatenate([W,B]), 0, 127)
