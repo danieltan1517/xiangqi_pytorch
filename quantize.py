@@ -179,7 +179,7 @@ feature_biases = torch.round(feature_biases * s_a)
 #hidden2_weight = torch.round(hidden2_weight * s_w)
 #hidden2_biases = torch.round(hidden2_biases * s_w * s_a)
 
-output_weight_scaling = 16.0
+output_weight_scaling = 32.0
 
 output_weight  = torch.round(output_weight * output_weight_scaling * s_o / s_a)
 output_biases  = torch.round(output_biases * output_weight_scaling * s_o)
@@ -213,6 +213,7 @@ output_biases  = convert_to_int32(output_biases)
 def evaluation(actual, fen):
   W,B = parse_fen_to_indices(fen)
   wdl = model(torch.from_numpy(W.astype(numpy.float32)),torch.from_numpy(B.astype(numpy.float32)))
+  print(f'FEN: {fen}')
   print(wdl, sigmoid(actual / SCALE_FACTOR))
   W = feature_weight @ W + feature_biases
   B = feature_weight @ B + feature_biases
@@ -221,25 +222,12 @@ def evaluation(actual, fen):
   #accum = numpy.clip((hidden2_weight @ accum + hidden2_biases) // 64, 0, 127)
   output = (output_weight @ accum + output_biases) // output_weight_scaling
   print(f'Guess: {output}, actual: {actual}')
+  print('=======================================')
 
-evaluation(4,"rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/NC5C1/9/R1BAKABNR b - - 0 1")
-evaluation(0,"rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1CN4C1/9/R1BAKABNR b - - 0 1")
-evaluation(0,"rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C4NC1/9/RNBAKAB1R b - - 0 1")
-evaluation(4,"rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5CN/9/RNBAKAB1R b - - 0 1")
-evaluation(295,"rn1akabn1/4r4/2c1b2c1/p3p1p1p/9/2p6/P3P1P1P/NC2C1N2/4A4/R1B1KABR1 w - - 0 1")
-evaluation(-295,"rn1akabn1/4r4/2c1b2c1/p3C1p1p/9/2p6/P3P1P1P/NC4N2/4A4/R1B1KABR1 b - - 0 1")
-evaluation(212,"rn2kabn1/3ra4/2c1b2c1/p3C1p1p/9/2p6/P3P1P1P/NC4N2/9/R1BAKABR1 b - - 0 1")
-evaluation(111,"rn2kabn1/3ra4/2c1b2c1/p3C1p1p/9/2p6/P3P1P1P/NC3AN2/9/R1B1KABR1 b - - 0 1")
-evaluation(699,"r3kab2/4a4/2n1N2Rn/2R5C/9/6P2/p3p3P/4B4/2NrAc3/3AK1B2 w - - 0 1")
-evaluation(355,"1r2kab2/4a4/2n1N2Rn/2R5C/9/6P2/p4p2P/4B4/2NrAc3/3AK1B2 w - - 0 1")
-evaluation(647,"R5b2/4k1c2/1n2b4/p3p3p/3P2P2/9/P3P3P/B5C2/9/3AKAB2 w - - 0 1")
-evaluation(728,"R5b2/4k2c1/1n2b4/p3p3p/3P2P2/9/P3P3P/B5C2/9/3AKAB2 w - - 0 1")
-evaluation(730,"R5b2/4k3c/1n2b4/p3p3p/3P2P2/9/P3P3P/B5C2/9/3AKAB2 w - - 0 1")
-evaluation(734,"R5b2/4k4/1n2b4/p3p3p/3P2P2/9/P3P3P/B5C2/5c3/3AKAB2 w - - 0 1")
-evaluation(740,"R5b2/4k4/1n2b4/p3p3p/3P2P2/9/P3P3P/B4cC2/9/3AKAB2 w - - 0 1")
-evaluation(726,"R5b2/4k4/1n2b4/p3p3p/3P2P2/9/P3Pc2P/B5C2/9/3AKAB2 w - - 0 1")
-evaluation(724,"R5b2/4k4/1n2b4/p3p3p/3P2P2/5c3/P3P3P/B5C2/9/3AKAB2 w - - 0 1")
-evaluation(962,"R5b2/4k4/1n2b4/p3p3p/3P1cP2/9/P3P3P/B5C2/9/3AKAB2 w - - 0 1")
+evaluation(-10,"rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C4NC1/9/RNBAKAB1R b")
+evaluation(70,"r2akab2/3r5/n1c1b1c1n/p5p1C/9/C5BR1/P2pP1P1P/N5N2/4A4/R2K1AB2 b")
+evaluation(-41,"r2akab2/3r5/n3b1c1n/p5p1C/9/C6R1/P2pP1P1P/N1c1B1N1B/4A4/R2K1A3 w")
+evaluation(107,"r2akab2/3r5/n1c1b1c1n/p5p1C/9/C6R1/P2pP1P1P/N3BAN2/9/R2K1AB2 b")
 
 
 # create binary data:
