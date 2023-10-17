@@ -7,11 +7,12 @@ import re
 
 epochs = 1024
 batch_size = 16384
-learning_rate = 8.75e-3
+learning_rate = 1.15e-3
 device = "cuda"  # either 'cpu' or 'cuda'
 path = "model" # path of saved model
 filename = "xiangqi_evaluations.txt"
 num_workers = 4
+SCALE_FACTOR = 360
 
 identity = [ 0,  1,  2,  3,  4,  5,  6,  7,  8,
              9, 10, 11, 12, 13, 14, 15, 16, 17,
@@ -172,14 +173,14 @@ class XiangqiDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         evaluation = self.evals[idx]
-        evaluation = torch.tensor([sigmoid(evaluation / 400.0)])
+        evaluation = torch.tensor([sigmoid(evaluation / SCALE_FACTOR)])
         fen = self.positions[idx]
         white, black = parse_fen_to_indices(fen)
         return (white,black), evaluation
 
 
 def create_datasets(filename, factor=0.8, eval_margin=150):
-    dataset = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str})
+    dataset = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str}, nrows=10000)
     dataset = dataset.loc[(dataset['eval'] >= -eval_margin) & (dataset['eval'] <= eval_margin)]
     dataset.reset_index(inplace=True)
     print(f'Loaded {len(dataset)} pairs of data.')
@@ -196,18 +197,14 @@ class NNUE(torch.nn.Module):
 
     def __init__(self):
         super(NNUE, self).__init__()
-        self.feature = torch.nn.Linear(2430, 256)
-        self.hidden1 = torch.nn.Linear(512, 32)
-        self.hidden2 = torch.nn.Linear(32, 32)
-        self.output  = torch.nn.Linear(32, 1)
+        self.feature = torch.nn.Linear(2430, 128)
+        self.output  = torch.nn.Linear(256, 1)
 
 
     def forward(self, white, black):
         white = self.feature(white)
         black = self.feature(black)
         accum = torch.clamp(torch.cat([white, black], dim=1), 0.0, 1.0)
-        accum = torch.clamp(self.hidden1(accum), 0.0, 1.0)
-        accum = torch.clamp(self.hidden2(accum), 0.0, 1.0)
         return torch.sigmoid(self.output(accum))
 
 
@@ -240,7 +237,7 @@ print('Xiangqi NNUE Data Loaded Successfully.')
 
 tolerance = 0
 total_loss = float('inf')
-centipawn = sigmoid(1 / 400.0) - .5
+centipawn = sigmoid(1 / SCALE_FACTOR) - .5
 for e in range(epochs):
   print(f'Starting Epoch {e+1:3} out of {epochs:4}...Centipawn {centipawn}')
   model.train()
