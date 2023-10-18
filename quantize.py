@@ -184,6 +184,7 @@ output_weight_scaling = 32.0
 output_weight  = torch.round(output_weight * output_weight_scaling * s_o / s_a)
 output_biases  = torch.round(output_biases * output_weight_scaling * s_o)
 
+
 def convert_to_int8(tensor):
   return tensor.numpy().astype(numpy.int8)
 
@@ -209,6 +210,10 @@ feature_biases = convert_to_int16(feature_biases)
 output_weight  = convert_to_int8(output_weight)
 output_biases  = convert_to_int32(output_biases)
 
+print(output_weight)
+print(numpy.min(output_weight))
+print(numpy.max(output_weight))
+print(output_biases)
 
 def evaluation(actual, fen):
   W,B = parse_fen_to_indices(fen)
