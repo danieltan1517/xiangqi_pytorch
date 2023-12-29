@@ -5,14 +5,15 @@ import random
 import numpy
 import re
 
-epochs = 50 
-batch_size = 16384
+epochs = 400 
+batch_size = 8192
 learning_rate = 8.75e-4
 device = "cuda"  # either 'cpu' or 'cuda'
 path = "model" # path of saved model
 filename = "xiangqi_evaluations.txt"
 num_workers = 4
-SCALE_FACTOR = 360 
+SCALE_FACTOR = 360   # IMPORTANT: SCALE_FACTOR between quantize.py and nnue_torch.py MUST MATCH
+start_from_scratch = False
 
 identity = [ 0,  1,  2,  3,  4,  5,  6,  7,  8,
              9, 10, 11, 12, 13, 14, 15, 16, 17,
@@ -39,8 +40,8 @@ mirror_id = [81, 82, 83, 84, 85, 86, 87, 88, 89,
 
 
 king_sq_index = [None, None, None,  1,  0,  1, None, None, None,
-                 None, None, None,  2,  1,  2, None, None, None,
-                 None, None, None,  2,  2,  2, None, None, None]
+                 None, None, None,  1,  1,  1, None, None, None,
+                 None, None, None,  1,  1,  1, None, None, None]
 
 
 def get_piece(p):
@@ -117,8 +118,8 @@ def parse_fen_to_indices(fen):
     elif tokens[1] == 'b':
         stm = False
 
-    input1 = numpy.zeros(shape = (3,9,90), dtype=numpy.float32)
-    input2 = numpy.zeros(shape = (3,9,90), dtype=numpy.float32)
+    input1 = numpy.zeros(shape = (2,9,90), dtype=numpy.float32)
+    input2 = numpy.zeros(shape = (2,9,90), dtype=numpy.float32)
 
     def mirror_values(stm: bool, ksq: int, piece: int, sq: int, mirror):
         ksq = king_sq_index[mirror[ksq]]
@@ -179,8 +180,8 @@ class XiangqiDataset(torch.utils.data.Dataset):
         return (white,black), evaluation
 
 
-def create_datasets(filename, factor=0.8, eval_margin=150):
-    dataset = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str})
+def create_datasets(filename, factor=0.9, eval_margin=150):
+    dataset = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str}, nrows=10000)
     dataset = dataset.loc[(dataset['eval'] >= -eval_margin) & (dataset['eval'] <= eval_margin)]
     dataset.reset_index(inplace=True)
     print(f'Loaded {len(dataset)} pairs of data.')
@@ -197,7 +198,7 @@ class NNUE(torch.nn.Module):
 
     def __init__(self):
         super(NNUE, self).__init__()
-        self.feature = torch.nn.Linear(2430, 128)
+        self.feature = torch.nn.Linear(1620, 128)
         self.output  = torch.nn.Linear(256, 1)
 
 
@@ -224,10 +225,14 @@ def validation_dataset(test_dataloader, model, mse_error):
     avg_loss /= n
     return avg_loss
 
+nnue = None
+model = None
+if start_from_scratch == True:
+  nnue = NNUE()
+  model = nnue.to(torch.device(device))
+else:
+  model = torch.load(path, map_location=torch.device(device))
 
-
-nnue = NNUE()
-model     = nnue.to(torch.device(device))
 mse_error = torch.nn.MSELoss()
 opt       = torch.optim.Adam(model.parameters(), lr=learning_rate)
 train_dataset, test_dataset = create_datasets(filename, 0.8, 1500)

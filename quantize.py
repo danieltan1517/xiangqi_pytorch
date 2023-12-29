@@ -4,6 +4,7 @@ import random
 import numpy
 import re
 
+# IMPORTANT: SCALE_FACTOR between quantize.py and nnue_torch.py MUST MATCH
 SCALE_FACTOR = 360.0
 path = 'model'
 
@@ -30,8 +31,8 @@ mirror_id = [81, 82, 83, 84, 85, 86, 87, 88, 89,
               0,  1,  2,  3,  4,  5,  6,  7,  8]
 
 king_sq_index = [None, None, None,  1,  0,  1, None, None, None,
-                 None, None, None,  2,  1,  2, None, None, None,
-                 None, None, None,  2,  2,  2, None, None, None]
+                 None, None, None,  1,  1,  1, None, None, None,
+                 None, None, None,  1,  1,  1, None, None, None]
 
 def get_piece(p):
   if p == 'a' or p == 'A' or p == 'B' or p == 'b':
@@ -104,8 +105,8 @@ def parse_fen_to_indices(fen):
     elif tokens[1] == 'b':
         stm = False
 
-    input1 = numpy.zeros(shape = (3,9,90), dtype=numpy.int32)
-    input2 = numpy.zeros(shape = (3,9,90), dtype=numpy.int32)
+    input1 = numpy.zeros(shape = (2,9,90), dtype=numpy.int32)
+    input2 = numpy.zeros(shape = (2,9,90), dtype=numpy.int32)
 
     def mirror_values(stm: bool, ksq: int, piece: int, sq: int, mirror):
         ksq = king_sq_index[mirror[ksq]]
@@ -140,7 +141,7 @@ class NNUE(torch.nn.Module):
 
     def __init__(self):
         super(NNUE, self).__init__()
-        self.feature = torch.nn.Linear(2430, 128)
+        self.feature = torch.nn.Linear(1620, 128)
         self.output  = torch.nn.Linear(256, 1)
 
 
