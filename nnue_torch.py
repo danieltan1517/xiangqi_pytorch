@@ -13,7 +13,7 @@ path = "model" # path of saved model
 filename = "xiangqi_evaluations.txt"
 num_workers = 4
 SCALE_FACTOR = 360   # IMPORTANT: SCALE_FACTOR between quantize.py and nnue_torch.py MUST MATCH
-start_from_scratch = False
+start_from_scratch = True 
 
 identity = [ 0,  1,  2,  3,  4,  5,  6,  7,  8,
              9, 10, 11, 12, 13, 14, 15, 16, 17,
@@ -181,7 +181,7 @@ class XiangqiDataset(torch.utils.data.Dataset):
 
 
 def create_datasets(filename, factor=0.9, eval_margin=150):
-    dataset = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str}, nrows=10000)
+    dataset = pandas.read_csv(filename, dtype={'eval':numpy.int16, 'positions':str})
     dataset = dataset.loc[(dataset['eval'] >= -eval_margin) & (dataset['eval'] <= eval_margin)]
     dataset.reset_index(inplace=True)
     print(f'Loaded {len(dataset)} pairs of data.')
@@ -235,7 +235,7 @@ else:
 
 mse_error = torch.nn.MSELoss()
 opt       = torch.optim.Adam(model.parameters(), lr=learning_rate)
-train_dataset, test_dataset = create_datasets(filename, 0.8, 1500)
+train_dataset, test_dataset = create_datasets(filename, 0.80, 1500)
 train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 test_dataloader  = torch.utils.data.DataLoader(test_dataset,  batch_size=batch_size, shuffle=False, num_workers=num_workers)
 print('Xiangqi NNUE Data Loaded Successfully.')
