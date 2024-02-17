@@ -12,7 +12,7 @@ device = "cuda"  # either 'cpu' or 'cuda'
 path = "model" # path of saved model
 filename = "xiangqi_evaluations.txt"
 num_workers = 4
-SCALE_FACTOR = 360   # IMPORTANT: SCALE_FACTOR between quantize.py and nnue_torch.py MUST MATCH
+SCALE_FACTOR = 120   # IMPORTANT: SCALE_FACTOR between quantize.py and nnue_torch.py MUST MATCH
 start_from_scratch = True 
 
 identity = [ 0,  1,  2,  3,  4,  5,  6,  7,  8,

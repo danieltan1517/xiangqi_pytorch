@@ -5,7 +5,7 @@ import numpy
 import re
 
 # IMPORTANT: SCALE_FACTOR between quantize.py and nnue_torch.py MUST MATCH
-SCALE_FACTOR = 360.0
+SCALE_FACTOR = 120.0
 path = 'model'
 
 identity = [ 0,  1,  2,  3,  4,  5,  6,  7,  8,
